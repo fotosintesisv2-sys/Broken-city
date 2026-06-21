@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Broken City — Parepare Front</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Oswald:wght@500;600;700&family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Map fills the whole screen; everything else floats on top -->
+  <div id="map"></div>
+
+  <!-- Friendly error shown if the map library fails to load (e.g. no internet) -->
+  <div id="maps-error" class="overlay hidden">
+    <div class="overlay-card">
+      <h2>Map didn't load</h2>
+      <p>Broken City couldn't load the map tiles. This usually means there's no internet connection right now, or the Leaflet library got blocked.</p>
+      <p>Check your connection and reload the page. No API key or account is needed — this version runs on free OpenStreetMap tiles.</p>
+    </div>
+  </div>
+
+  <!-- ============ START SCREEN ============ -->
+  <div id="start-screen" class="overlay hidden">
+    <div class="start-card">
+      <div class="eyebrow">A territory war over</div>
+      <h1>BROKEN CITY</h1>
+      <div class="subtitle">Parepare Front</div>
+      <p class="lede">Three factions are fighting for control of Parepare's streets, hills, and harbor. Pick a side. Train troops, hold your terrain, and take the city.</p>
+
+      <div class="faction-grid">
+        <button class="faction-card" data-faction="DF" style="--fc-color:#d6453d">
+          <div class="faction-name">Dam Frut</div>
+          <div class="faction-tag">Kekuatan jumlah &amp; murah meriah</div>
+          <ul class="faction-units">
+            <li>Militia — cheap, spammable</li>
+            <li>Infantry — standard</li>
+            <li>Frut Legioner — elite</li>
+          </ul>
+        </button>
+
+        <button class="faction-card" data-faction="CLF" style="--fc-color:#3d7ea6">
+          <div class="faction-name">City Liberation Front</div>
+          <div class="faction-tag">Moral tinggi, bertahan dengan gigih</div>
+          <ul class="faction-units">
+            <li>Volunteer — strong morale</li>
+            <li>Peacekeeper — standard</li>
+            <li>Liberator — elite</li>
+          </ul>
+        </button>
+
+        <button class="faction-card" data-faction="PPNF" style="--fc-color:#c79a2b">
+          <div class="faction-name">Pare Pare Nationalist Front</div>
+          <div class="faction-tag">Spesialis kota, bertahan habis-habisan</div>
+          <ul class="faction-units">
+            <li>Street Militia — city specialist</li>
+            <li>Infantry — standard</li>
+            <li>Republic Corps — elite</li>
+          </ul>
+        </button>
+      </div>
+      <p class="hint">Tap a faction to deploy.</p>
+    </div>
+  </div>
+
+  <!-- ============ TOP HUD ============ -->
+  <div id="hud" class="hud hidden">
+    <div class="hud-item">
+      <span class="hud-label">FUND</span>
+      <span class="hud-value" id="hud-fund">0</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">ZONES</span>
+      <span class="hud-value" id="hud-zones">0/0</span>
+    </div>
+    <div class="hud-item">
+      <span class="hud-label">TIME</span>
+      <span class="hud-value" id="hud-clock">00:00</span>
+    </div>
+  </div>
+
+  <!-- ============ LEGEND ============ -->
+  <button id="legend-toggle" class="legend-toggle hidden">ℹ</button>
+  <div id="legend-panel" class="legend-panel hidden">
+    <h3>Terrain</h3>
+    <div class="legend-row">🛣️ <b>Jalan Raya</b> — +50% speed, -15% defense</div>
+    <div class="legend-row">⛰️ <b>Bukit</b> — +20% attack, slightly slower</div>
+    <div class="legend-row">🌲 <b>Hutan</b> — +25% defense, hard to detect, -20% speed/attack</div>
+    <div class="legend-row">🏔️ <b>Gunung</b> — +40% vision, +30% defense, -50% speed</div>
+    <div class="legend-row">🪵 <b>Rawa</b> — harder to attack, -40% speed, slow stamina regen</div>
+    <div class="legend-row">🏜️ <b>Gurun</b> — light units +15% speed, faster stamina loss</div>
+    <div class="legend-row">🏙️ <b>Kota</b> — +35% defense, vulnerable to elite/area attacks</div>
+    <div class="legend-row">🌊 <b>Sungai</b> — faster attack cooldown, -60% speed crossing</div>
+    <h3>How to play</h3>
+    <div class="legend-row">Tap a zone you own to open its panel.</div>
+    <div class="legend-row">Train units, then tap <b>Send forces</b> and pick a connected zone to attack or reinforce.</div>
+    <div class="legend-row">Zones earn fund automatically. Capture the harbor, hills, and the mountain — they pay the most.</div>
+    <button class="btn" id="legend-close">Close</button>
+  </div>
+
+  <!-- ============ ZONE PANEL ============ -->
+  <div id="panel" class="panel hidden">
+    <div class="panel-head">
+      <div>
+        <div class="panel-title" id="panel-title">—</div>
+        <div class="panel-owner" id="panel-owner">—</div>
+      </div>
+      <button id="panel-close" class="icon-btn">✕</button>
+    </div>
+    <div class="panel-terrain" id="panel-terrain">—</div>
+    <div class="panel-meta">
+      <span id="panel-fund">Fund output: 0/s</span>
+      <span id="panel-stamina">Stamina: 100/100</span>
+    </div>
+    <div class="panel-garrison" id="panel-garrison"></div>
+    <div class="panel-training hidden" id="panel-training"></div>
+    <div class="panel-actions" id="panel-actions"></div>
+  </div>
+
+  <!-- ============ SEND FORCES MODAL ============ -->
+  <div id="send-modal" class="overlay hidden">
+    <div class="send-card">
+      <h3 id="send-modal-title">Send forces</h3>
+      <p class="hint">How much of your garrison?</p>
+      <div class="send-grid">
+        <button class="btn send-pct" data-pct="0.25">25%</button>
+        <button class="btn send-pct" data-pct="0.5">50%</button>
+        <button class="btn send-pct" data-pct="0.75">75%</button>
+        <button class="btn send-pct" data-pct="1">All&nbsp;in</button>
+      </div>
+      <button class="btn ghost" id="send-cancel">Cancel</button>
+    </div>
+  </div>
+
+  <!-- ============ TOAST ============ -->
+  <div id="toast" class="toast"></div>
+
+  <!-- ============ WIN / LOSE BANNER ============ -->
+  <div id="banner" class="overlay hidden">
+    <div class="overlay-card">
+      <h2 id="banner-text">—</h2>
+      <button class="btn" id="banner-restart">Play again</button>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+  <script src="config.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
